@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resume Shortlister</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <main class="container">
+    <h1>Resume Shortlister</h1>
+    <p class="subtitle">Upload a resume PDF and check it against the skills a job requires.</p>
+
+    <form method="post" action="/evaluate" enctype="multipart/form-data" class="card">
+      <label for="resume">Resume (PDF, max 5 MB)</label>
+      <input id="resume" name="resume" type="file" accept="application/pdf,.pdf" required>
+
+      <label for="required_skills">Job-required skills</label>
+      <textarea id="required_skills" name="required_skills" rows="3" required
+        placeholder="Python, Docker, Kubernetes, Jenkins">{{ form.required_skills or '' }}</textarea>
+      <small>Separate skills with commas or new lines.</small>
+
+      <label for="threshold">Shortlist threshold (%)</label>
+      <input id="threshold" name="threshold" type="number" min="0" max="100" value="{{ form.threshold }}">
+
+      <button type="submit">Evaluate</button>
+    </form>
+
+    {% if error %}
+      <div class="card error">{{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+    <section class="card result">
+      <h2>{{ candidate }}</h2>
+      <span class="badge {{ 'yes' if result.shortlisted else 'no' }}">
+        {{ 'Shortlisted' if result.shortlisted else 'Not shortlisted' }}
+      </span>
+      <p class="score">{{ result.percentage }}% match <small>(threshold {{ result.threshold }}%)</small></p>
+      <div class="bar"><div class="fill {{ 'yes' if result.shortlisted else 'no' }}" style="width: {{ result.percentage }}%"></div></div>
+
+      <div class="columns">
+        <div>
+          <h3>Matching skills ({{ result.matching|length }})</h3>
+          {% for s in result.matching %}<span class="tag ok">{{ s }}</span>{% else %}<em>None</em>{% endfor %}
+        </div>
+        <div>
+          <h3>Missing skills ({{ result.missing|length }})</h3>
+          {% for s in result.missing %}<span class="tag miss">{{ s }}</span>{% else %}<em>None</em>{% endfor %}
+        </div>
+      </div>
+    </section>
+    {% endif %}
+  </main>
+</body>
+</html>

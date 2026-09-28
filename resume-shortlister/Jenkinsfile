@@ -1,0 +1,57 @@
+// Declarative pipeline: test -> build image -> deploy container -> smoke test.
+// Requires a Jenkins agent with Python 3 and Docker installed.
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME     = 'resume-shortlister'
+        CONTAINER_NAME = 'resume-shortlister'
+        HOST_PORT      = '8000'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps { checkout scm }
+        }
+
+        stage('Install & Test') {
+            steps {
+                sh '''
+                    python3 -m venv .venv
+                    . .venv/bin/activate
+                    pip install -r requirements-dev.txt
+                    pytest -q
+                '''
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} -t ${IMAGE_NAME}:latest .'
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh '''
+                    docker rm -f ${CONTAINER_NAME} || true
+                    docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:8000 ${IMAGE_NAME}:latest
+                '''
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                sh '''
+                    sleep 5
+                    curl --fail http://localhost:${HOST_PORT}/health
+                '''
+            }
+        }
+    }
+
+    post {
+        failure { sh 'docker logs ${CONTAINER_NAME} || true' }
+        always  { cleanWs() }
+    }
+}
